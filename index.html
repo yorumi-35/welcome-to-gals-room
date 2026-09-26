@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <!-- 移动端视口优化 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>welcome to glas room</title>
+  <style>
+    /* ================= 1. 全局与全屏重置 ================= */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Hiragino Kaku Gothic Pro", "Microsoft YaHei", sans-serif;
+      background-color: #fbc2d5;
+    }
+
+    /* 游戏全屏外部视口 */
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* ================= 核心：1200x720 虚拟设计舞台 ================= */
+    #game-stage {
+      position: relative;
+      width: 1200px;
+      height: 720px;
+      flex-shrink: 0;
+      transform-origin: center center;
+      transition: transform 0.1s ease-out;
+      z-index: 5;
+    }
+
+    /* ================= 2. 底层背景 ================= */
+    .layer-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      background-color: #fbc2d5;
+      background-image: url('assets/bg_leopard.png');
+      background-size: cover;
+      background-position: center;
+      transition: background-image 0.4s ease-in-out;
+    }
+
+    /* ================= 3. 动态花边条 ================= */
+    .scrolling-ribbon {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 50px;
+      overflow: hidden;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .ribbon-top { top: 0; }
+    .ribbon-bottom { bottom: 0; }
+
+    .ribbon-track {
+      display: flex;
+      width: 200%;
+      height: 100%;
+      animation: marqueeLoop 18s linear infinite;
+    }
+    .ribbon-slice {
+      width: 50%;
+      height: 100%;
+      background-image: url('assets/lace_ribbon.png');
+      background-repeat: repeat-x;
+      background-size: auto 100%;
+    }
+
+    @keyframes marqueeLoop {
+      0% { transform: translateX(0%); }
+      100% { transform: translateX(-50%); }
+    }
+
+    /* ================= 4. 交互层 ================= */
+    .layer-interactive {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    .screen.active {
+      display: flex;
+    }
+
+    /* 界面 1：开始 */
+    #screen-home .home-content {
+      position: relative;
+      text-align: center;
+      max-width: 600px;
+    }
+    #screen-home .main-title-img {
+      max-height: 480px;
+      object-fit: contain;
+    }
+    #screen-home .start-btn {
+      display: block;
+      margin: -130px auto 0;
+      cursor: pointer;
+      max-width: 280px;
+      transition: transform 0.2s ease-in-out;
+    }
+    #screen-home .start-btn:hover {
+      transform: scale(1.1);
+    }
+
+    /* 界面 2：故事 */
+    .story-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .story-card {
+      width: 1020px;
+      height: 580px;
+      background: #ffffff;
+      border: 6px solid #6b3ce2;
+      border-radius: 12px;
+      box-shadow: 10px 10px 0px #f4a2ca;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .story-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .story-arrow {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: #6b3ce2;
+      color: #fff;
+      border: none;
+      font-size: 26px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      z-index: 10;
+    }
+    .story-arrow:hover { background: #ff4785; }
+
+    /* 界面 3：换装主界面 */
+    #screen-dressup {
+      gap: 30px;
+      padding: 30px 20px;
+    }
+
+    /* 人物舞台左列 */
+    .doll-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .mirror-frame {
+      position: relative;
+      width: 330px;
+      height: 500px;
+      background: #ffd5e5;
+      border: 8px solid #5a30b5;
+      border-radius: 8px;
+      box-shadow: 6px 6px 0 rgba(90, 48, 181, 0.3);
+      overflow: hidden;
+    }
+
+    .doll-stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform: scale(1.15) translateX(-30px) translateY(-15px);
+      transform-origin: center center;
+    }
+
+    .doll-stage img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .doll-stage img:not([src]),
+    .doll-stage img[src=""] {
+      display: none;
+    }
+
+    /* 严格分层 */
+    #layer-body         { z-index: 2; }
+    #layer-socks-inner  { z-index: 3; } /* 底层袜子（鞋子之下） */
+    #layer-bottom       { z-index: 4; } /* 下装 */
+    #layer-shoes        { z-index: 5; } /* 鞋子 */
+    #layer-socks-outer  { z-index: 6; } /* 叠穿袜子（鞋子之上） */
+    #layer-top          { z-index: 7; } /* 上衣 */
+    #layer-coat         { z-index: 8; } /* 外套 */
+    #layer-nails        { z-index: 9; } /* 美甲 */
+    #layer-hair         { z-index: 10; }/* 头发 */
+    #layer-acc1         { z-index: 11; }
+    #layer-acc2         { z-index: 12; }
+    #layer-acc3         { z-index: 13; }
+    #layer-acc4         { z-index: 14; }
+    #layer-acc5         { z-index: 15; }
+
+    /* 人物正下方重置按钮 */
+    .reset-btn-bottom {
+      width: 100%;
+      padding: 9px 0;
+      background: #ffffff;
+      color: #5a30b5;
+      border: 4px solid #5a30b5;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 4px 4px 0px #5a30b5;
+      transition: all 0.1s ease-in-out;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      letter-spacing: 1px;
+    }
+
+    .reset-btn-bottom:hover {
+      background: #ff4785;
+      color: #ffffff;
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px #5a30b5;
+    }
+
+    /* 右侧衣柜大面板 */
+    .wardrobe-panel {
+      width: 760px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 5px 11px;
+      background: #fff;
+      border: 3px solid #5a30b5;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #5a30b5;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: #5a30b5;
+      color: #fff;
+    }
+
+    /* 15 格衣柜容器 */
+    .grid-box {
+      width: 100%;
+      height: 450px;
+      background: #ffe3ed;
+      border: 8px solid #5a30b5;
+      border-radius: 8px;
+      box-shadow: 8px 8px 0px #5a30b5;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 10px;
+      padding: 12px;
+      contain: layout paint;
+    }
+
+    /* 衣柜格子 */
+    .cloth-slot {
+      background: rgba(255, 255, 255, 0.7);
+      border: 2px dashed #f492b9;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
+
+    .cloth-slot:hover {
+      background: #ffffff;
+      border-color: #5a30b5;
+      border-style: solid;
+    }
+
+    .cloth-slot.selected {
+      background: #ffffff;
+      border: 3px solid #ff4785;
+      border-style: solid;
+      box-shadow: inset 0 0 6px rgba(255, 71, 133, 0.4);
+    }
+
+    .cloth-slot img {
+      max-width: 80%;
+      max-height: 80%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    /* ★ 核心修改2：饰品放大并向左下方微移（translate(-6px, 6px)） ★ */
+    .cloth-slot.slot-acc img {
+      max-width: 95%;
+      max-height: 95%;
+      transform: scale(1.35) translate(-6px, 6px);
+      transition: transform 0.15s ease-out;
+    }
+    .cloth-slot.slot-acc:hover img {
+      transform: scale(1.48) translate(-6px, 6px);
+    }
+
+    /* 肤色与美甲圆形色卡 */
+    .skin-color-circle {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 3px solid #5a30b5;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      pointer-events: none;
+    }
+
+    .skin-color-title {
+      font-size: 11px;
+      font-weight: bold;
+      color: #5a30b5;
+      margin-top: 5px;
+      pointer-events: none;
+    }
+
+    /* 衣柜下方翻页操作栏 */
+    .pagination-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 10px;
+      height: 35px;
+    }
+
+    .page-btn {
+      padding: 4px 14px;
+      background: #ffffff;
+      color: #5a30b5;
+      border: 3px solid #5a30b5;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 3px 3px 0px #5a30b5;
+    }
+
+    .page-btn:hover:not(:disabled) {
+      background: #ff4785;
+      color: #ffffff;
+      transform: translate(1px, 1px);
+      box-shadow: 2px 2px 0px #5a30b5;
+    }
+
+    .page-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .page-indicator {
+      font-size: 14px;
+      font-weight: bold;
+      color: #5a30b5;
+      background: #fff;
+      padding: 3px 14px;
+      border-radius: 12px;
+      border: 2px solid #5a30b5;
+    }
+
+    /* 小猫按钮 */
+    .cat-btn {
+      position: absolute;
+      right: 25px;
+      bottom: 25px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .cat-btn:hover {
+      transform: scale(1.1) rotate(6deg);
+    }
+
+    /* 界面 4：参考界面 */
+    #screen-guide {
+      background: rgba(0, 0, 0, 0.45);
+    }
+    .guide-box {
+      position: relative;
+      width: 880px;
+      height: 520px;
+      background: #ffffff;
+      border: 6px solid #5a30b5;
+      border-radius: 12px;
+      box-shadow: 12px 12px 0px #ff69b4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .guide-box img {
+      max-width: 85%;
+      max-height: 85%;
+      object-fit: contain;
+    }
+    .close-guide-btn {
+      position: absolute;
+      top: -22px;
+      right: -22px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #ff4785;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      border: 4px solid #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      z-index: 10;
+    }
+
+    .guide-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #6b3ce2;
+      color: #ffffff;
+      font-size: 24px;
+      font-weight: bold;
+      border: 3px solid #ffffff;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+      z-index: 5;
+    }
+    .guide-arrow:hover {
+      background: #ff4785;
+      transform: translateY(-50%) scale(1.1);
+    }
+    .guide-arrow-left { left: 15px; }
+    .guide-arrow-right { right: 15px; }
+
+    .guide-page-counter {
+      position: absolute;
+      bottom: 12px;
+      background: #5a30b5;
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      padding: 3px 14px;
+      border-radius: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 全屏外层视口 -->
+  <div id="game-container">
+    
+    <!-- 全屏铺满的背景与花边 -->
+    <div class="layer-background"></div>
+
+    <div class="scrolling-ribbon ribbon-top">
+      <div class="ribbon-track">
+        <div class="ribbon-slice"></div>
+        <div class="ribbon-slice"></div>
+      </div>
+    </div>
+
+    <div class="scrolling-ribbon ribbon-bottom">
+      <div class="ribbon-track">
+        <div class="ribbon-slice"></div>
+        <div class="ribbon-slice"></div>
+      </div>
+    </div>
+
+    <!-- 核心缩放舞台 -->
+    <div id="game-stage">
+      <div class="layer-interactive">
+
+        <!-- 界面 1：开始 -->
+        <section id="screen-home" class="screen active">
+          <div class="home-content">
+            <img class="main-title-img" src="assets/home_graphic.gif" alt="欢迎光临 辣妹频道">
+            <img class="start-btn" src="assets/btn_letsgo.png" alt="Let's Go!" onclick="goToScreen('story')">
+          </div>
+        </section>
+
+        <!-- 界面 2：故事 -->
+        <section id="screen-story" class="screen">
+          <div class="story-wrapper">
+            <button class="story-arrow" onclick="changeStory(-1)">&lt;</button>
+            <div class="story-card" onclick="handleStoryClick()">
+              <img id="story-display" src="assets/story/page1.png" alt="故事剧情">
+            </div>
+            <button class="story-arrow" onclick="changeStory(1)">&gt;</button>
+          </div>
+        </section>
+
+        <!-- 界面 3：主换装界面 -->
+        <section id="screen-dressup" class="screen">
+          
+          <div class="doll-column">
+            <div class="mirror-frame">
+              <div class="doll-stage">
+                <!-- 人物身体与服饰层 -->
+                <img id="layer-body" src="assets/doll/body1.png" alt="素体">
+                <img id="layer-socks-inner" src="assets/socks/sks1.png" alt="内层袜子">
+                <img id="layer-bottom" src="assets/bottoms/b0.png" alt="下装">
+                <img id="layer-shoes" src="assets/shoes/s0.png" alt="鞋子">
+                <img id="layer-socks-outer" src="" alt="外层叠穿袜子">
+                <img id="layer-top" src="assets/tops/t1.png" alt="上衣">
+                <img id="layer-coat" src="" alt="外套">
+                <img id="layer-nails" src="" alt="美甲">
+                
+                <!-- 基础金发 -->
+                <img id="layer-hair" src="assets/hair/h1_front.png" alt="整顶头发">
+                
+                <!-- 5层独立饰品层 -->
+                <img id="layer-acc1" src="" alt="饰品1">
+                <img id="layer-acc2" src="" alt="饰品2">
+                <img id="layer-acc3" src="" alt="饰品3">
+                <img id="layer-acc4" src="" alt="饰品4">
+                <img id="layer-acc5" src="" alt="饰品5">
+              </div>
+            </div>
+            
+            <button class="reset-btn-bottom" onclick="clearOutfit()">↺ 重置造型</button>
+          </div>
+
+          <!-- 右侧衣柜面板 -->
+          <div class="wardrobe-panel">
+            <div class="tab-bar">
+              <button class="tab-btn active" onclick="switchTab('skin', this)">00 肤色</button>
+              <button class="tab-btn" onclick="switchTab('hair', this)">01 发型</button>
+              <button class="tab-btn" onclick="switchTab('tops', this)">02 上衣</button>
+              <button class="tab-btn" onclick="switchTab('coat', this)">03 外套</button>
+              <button class="tab-btn" onclick="switchTab('bottoms', this)">04 下装</button>
+              <!-- ★ 核心修改1：已去掉袜子和饰品后面的括号及提示文字 ★ -->
+              <button class="tab-btn" onclick="switchTab('socks', this)">05 袜子</button>
+              <button class="tab-btn" onclick="switchTab('shoes', this)">06 鞋子</button>
+              <button class="tab-btn" onclick="switchTab('nails', this)">07 美甲</button>
+              <button class="tab-btn" onclick="switchTab('acc', this)">08 饰品</button>
+            </div>
+
+            <!-- 15格衣柜容器 -->
+            <div class="grid-box" id="wardrobe-grid"></div>
+
+            <!-- 衣柜下方分页条 -->
+            <div class="pagination-bar">
+              <button class="page-btn" id="btn-prev-page" onclick="changeWardrobePage(-1)">&lt; 上一页</button>
+              <div class="page-indicator" id="wardrobe-page-info">1 / 1</div>
+              <button class="page-btn" id="btn-next-page" onclick="changeWardrobePage(1)">下一页 &gt;</button>
+            </div>
+          </div>
+
+          <div class="cat-btn" onclick="goToScreen('guide')">
+            <img src="assets/btn_cat.png" alt="搭配参考" style="width: 140px;">
+          </div>
+        </section>
+
+        <!-- 界面 4：参考界面 -->
+        <section id="screen-guide" class="screen">
+          <div class="guide-box">
+            <button class="close-guide-btn" onclick="goToScreen('dressup')">✕</button>
+            <button class="guide-arrow guide-arrow-left" onclick="changeGuidePage(-1)">&lt;</button>
+            <img id="guide-display" src="assets/guide/guide1.png" alt="搭配参考图">
+            <button class="guide-arrow guide-arrow-right" onclick="changeGuidePage(1)">&gt;</button>
+            <div class="guide-page-counter" id="guide-counter">1 / 7</div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= 5. 控制核心脚本 ================= -->
+  <script>
+    /* -------- 0. 全自动等比自适应引擎（手机/电脑通用） -------- */
+    function autoScaleGame() {
+      const stage = document.getElementById('game-stage');
+      if (!stage) return;
+      const designW = 1200;
+      const designH = 720;
+      const curW = window.innerWidth;
+      const curH = window.innerHeight;
+
+      const scale = Math.min(curW / designW, curH / designH);
+      stage.style.transform = `scale(${scale})`;
+    }
+
+    window.addEventListener('resize', autoScaleGame);
+    window.addEventListener('orientationchange', () => setTimeout(autoScaleGame, 100));
+    window.addEventListener('DOMContentLoaded', autoScaleGame);
+
+    /* -------- 1. 背景与页面切换 -------- */
+    const screenBackgrounds = {
+      home: 'url("assets/bg_leopard.png")',
+      story: 'url("assets/bg_story.png")',
+      dressup: 'url("assets/bg_room.png")',
+      guide: 'url("assets/bg_room.png")'
+    };
+
+    function goToScreen(screenName) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const target = document.getElementById(`screen-${screenName}`);
+      if (target) target.classList.add('active');
+
+      const bgLayer = document.querySelector('.layer-background');
+      if (bgLayer && screenBackgrounds[screenName]) {
+        bgLayer.style.backgroundImage = screenBackgrounds[screenName];
+      }
+    }
+
+    /* -------- 2. 故事小剧场 -------- */
+    const storyPages = ['assets/story/page1.png', 'assets/story/page2.png', 'assets/story/page3.png'];
+    let storyIdx = 0;
+
+    function renderStory() {
+      document.getElementById('story-display').src = storyPages[storyIdx];
+    }
+
+    function changeStory(step) {
+      storyIdx += step;
+      if (storyIdx < 0) storyIdx = 0;
+      if (storyIdx >= storyPages.length) {
+        goToScreen('dressup');
+        storyIdx = storyPages.length - 1;
+      }
+      renderStory();
+    }
+
+    function handleStoryClick() {
+      if (storyIdx < storyPages.length - 1) changeStory(1);
+      else goToScreen('dressup');
+    }
+
+    /* -------- 3. 搭配参考 -------- */
+    const guideList = [
+      'assets/guide/guide1.png', 'assets/guide/guide2.png', 'assets/guide/guide3.png',
+      'assets/guide/guide4.png', 'assets/guide/guide5.png', 'assets/guide/guide6.png',
+      'assets/guide/guide7.png'
+    ];
+    let currentGuideIndex = 0;
+
+    function changeGuidePage(step) {
+      currentGuideIndex += step;
+      if (currentGuideIndex < 0) currentGuideIndex = guideList.length - 1;
+      else if (currentGuideIndex >= guideList.length) currentGuideIndex = 0;
+
+      const img = document.getElementById('guide-display');
+      if (img) img.src = guideList[currentGuideIndex];
+
+      const counter = document.getElementById('guide-counter');
+      if (counter) counter.textContent = `${currentGuideIndex + 1} / ${guideList.length}`;
+    }
+
+    /* -------- 4. 批量生成素材数据 -------- */
+    function generateItems(prefix, count, folder) {
+      const list = [];
+      for (let i = 1; i <= count; i++) {
+        list.push({
+          id: `${prefix}${i}`,
+          icon: `assets/${folder}/${prefix}${i}_icon.png`,
+          wear: `assets/${folder}/${prefix}${i}.png`
+        });
+      }
+      return list;
+    }
+
+    const wardrobeItems = {
+      skin: [
+        { name: '白皙1', colorHex: '#ffe6db', body: 'assets/doll/body1.png' },
+        { name: '白皙2', colorHex: '#ffd2ba', body: 'assets/doll/body2.png' },
+        { name: '小麦1', colorHex: '#e5b292', body: 'assets/doll/body3.png' },
+        { name: '小麦2', colorHex: '#b87c56', body: 'assets/doll/body4.png' },
+        { name: '深褐1', colorHex: '#8b5a3c', body: 'assets/doll/body5.png' },
+        { name: '深褐2', colorHex: '#73462a', body: 'assets/doll/body6.png' },
+        { name: '深褐3', colorHex: '#57331e', body: 'assets/doll/body7.png' },
+        { name: '深褐4', colorHex: '#3b2213', body: 'assets/doll/body8.png' }
+      ],
+      hair: generateItems('h', 22, 'hair'),
+      tops: generateItems('t', 22, 'tops'),
+      coat: generateItems('c', 8, 'coat'),
+      bottoms: generateItems('b', 15, 'bottoms'), 
+      socks: generateItems('sks', 10, 'socks'),
+      shoes: generateItems('s', 21, 'shoes'),
+      /* ★ 核心修改3：5 款美甲色号（白、芭比粉、水蓝、彩色、黑色） ★ */
+      nails: [
+        { id: 'n1', name: '白', colorHex: '#ffffff', wear: 'assets/nails/n1.png' },
+        { id: 'n2', name: '芭比粉', colorHex: '#ff2d8d', wear: 'assets/nails/n2.png' },
+        { id: 'n3', name: '水蓝', colorHex: '#60d4ff', wear: 'assets/nails/n3.png' },
+        { id: 'n4', name: '彩色', colorHex: 'linear-gradient(135deg, #ff71b2, #ffd861, #6fe4ea, #ae8fff)', wear: 'assets/nails/n4.png' },
+        { id: 'n5', name: '黑色', colorHex: '#181818', wear: 'assets/nails/n5.png' }
+      ],
+      acc: generateItems('a', 54, 'acc')
+    };
+
+    /* -------- 5. 饰品叠戴系统 -------- */
+    const MAX_ACC = 5;
+    const defaultAccs = [
+      { id: 'a1', wear: 'assets/acc/a1.png' },
+      { id: 'a2', wear: 'assets/acc/a2.png' },
+      { id: 'a3', wear: 'assets/acc/a3.png' }
+    ];
+    let equippedAccs = [...defaultAccs];  
+ 
+    function toggleAccessory(item, slotElement) {
+      const index = equippedAccs.findIndex(acc => acc.id === item.id);
+      if (index !== -1) {
+        equippedAccs.splice(index, 1);
+        slotElement.classList.remove('selected');
+      } else {
+        if (equippedAccs.length >= MAX_ACC) {
+          equippedAccs.shift();
+        }
+        equippedAccs.push(item);
+      }
+      renderAccessories();
+      updateAccSlotHighlights();
+    }
+
+    function updateAccSlotHighlights() {
+      document.querySelectorAll('.cloth-slot').forEach(slot => {
+        const id = slot.getAttribute('data-id');
+        if (id) {
+          const isEquipped = equippedAccs.some(acc => acc.id === id);
+          if (isEquipped) slot.classList.add('selected');
+          else slot.classList.remove('selected');
+        }
+      });
+    }
+
+    function renderAccessories() {
+      for (let i = 1; i <= MAX_ACC; i++) {
+        const layer = document.getElementById(`layer-acc${i}`);
+        if (equippedAccs[i - 1]) {
+          layer.src = equippedAccs[i - 1].wear;
+        } else {
+          layer.src = '';
+        }
+      }
+    }
+
+    /* -------- 6. 袜子叠穿系统 -------- */
+    let equippedSocks = [
+      { id: 'sks1', wear: 'assets/socks/sks1.png' }
+    ];
+
+    function toggleSocks(item) {
+      const index = equippedSocks.findIndex(s => s.id === item.id);
+      if (index !== -1) {
+        equippedSocks.splice(index, 1);
+      } else {
+        if (equippedSocks.length >= 2) {
+          equippedSocks.shift();
+        }
+        equippedSocks.push(item);
+      }
+      renderSocks();
+      updateSocksHighlights();
+    }
+
+    function renderSocks() {
+      const innerLayer = document.getElementById('layer-socks-inner');
+      const outerLayer = document.getElementById('layer-socks-outer');
+
+      innerLayer.src = equippedSocks[0] ? equippedSocks[0].wear : '';
+      outerLayer.src = equippedSocks[1] ? equippedSocks[1].wear : '';
+    }
+
+    function updateSocksHighlights() {
+      document.querySelectorAll('.cloth-slot').forEach(slot => {
+        const id = slot.getAttribute('data-id');
+        if (id) {
+          const isEquipped = equippedSocks.some(s => s.id === id);
+          if (isEquipped) slot.classList.add('selected');
+          else slot.classList.remove('selected');
+        }
+      });
+    }
+
+    /* -------- 7. 衣柜分页与渲染 -------- */
+    const ITEMS_PER_PAGE = 15;
+    let currentCategory = 'skin';
+    let currentPage = 1;
+
+    function switchTab(category, btnElement) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      if (btnElement) btnElement.classList.add('active');
+
+      currentCategory = category;
+      currentPage = 1;
+      renderGrid();
+    }
+
+    function changeWardrobePage(delta) {
+      const items = wardrobeItems[currentCategory] || [];
+      const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1;
+      currentPage += delta;
+      if (currentPage < 1) currentPage = 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      renderGrid();
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('wardrobe-grid');
+      grid.innerHTML = '';
+
+      const items = wardrobeItems[currentCategory] || [];
+      const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1;
+
+      document.getElementById('wardrobe-page-info').textContent = `${currentPage} / ${totalPages}`;
+      document.getElementById('btn-prev-page').disabled = (currentPage <= 1);
+      document.getElementById('btn-next-page').disabled = (currentPage >= totalPages);
+
+      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+      const pageItems = items.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+      pageItems.forEach(item => {
+        const slot = document.createElement('div');
+        slot.className = 'cloth-slot';
+        if (item.id) slot.setAttribute('data-id', item.id);
+
+        if (currentCategory === 'skin') {
+          slot.innerHTML = `
+            <div class="skin-color-circle" style="background: ${item.colorHex};"></div>
+            <span class="skin-color-title">${item.name}</span>
+          `;
+          slot.onclick = () => {
+            document.getElementById('layer-body').src = item.body || '';
+          };
+        } else if (currentCategory === 'nails') {
+          // 美甲渲染色卡与文字
+          slot.innerHTML = `
+            <div class="skin-color-circle" style="background: ${item.colorHex};"></div>
+            <span class="skin-color-title">${item.name}</span>
+          `;
+          const nailLayer = document.getElementById('layer-nails');
+          if (nailLayer.src.includes(item.wear)) slot.classList.add('selected');
+
+          slot.onclick = () => {
+            if (nailLayer.src.includes(item.wear)) {
+              nailLayer.src = '';
+            } else {
+              nailLayer.src = item.wear;
+            }
+            renderGrid();
+          };
+        } else if (currentCategory === 'socks') {
+          slot.innerHTML = `<img src="${item.icon}" loading="lazy">`;
+          const isEquipped = equippedSocks.some(s => s.id === item.id);
+          if (isEquipped) slot.classList.add('selected');
+
+          slot.onclick = () => toggleSocks(item);
+        } else if (currentCategory === 'acc') {
+          // 添加专属 slot-acc 样式实现放大及向左下方微移
+          slot.classList.add('slot-acc');
+          slot.innerHTML = `<img src="${item.icon}" loading="lazy">`;
+          const isEquipped = equippedAccs.some(acc => acc.id === item.id);
+          if (isEquipped) slot.classList.add('selected');
+
+          slot.onclick = () => toggleAccessory(item, slot);
+        } else {
+          slot.innerHTML = `<img src="${item.icon}" loading="lazy">`;
+          
+          slot.onclick = () => {
+            if (currentCategory === 'hair') {
+              document.getElementById('layer-hair').src = item.wear || '';
+            } else if (currentCategory === 'tops') {
+              document.getElementById('layer-top').src = item.wear || '';
+            } else if (currentCategory === 'coat') {
+              const coatLayer = document.getElementById('layer-coat');
+              coatLayer.src = (coatLayer.src.includes(item.wear)) ? '' : item.wear;
+            } else if (currentCategory === 'bottoms') {
+              document.getElementById('layer-bottom').src = item.wear || '';
+            } else if (currentCategory === 'shoes') {
+              document.getElementById('layer-shoes').src = item.wear || '';
+            }
+          };
+        }
+
+        grid.appendChild(slot);
+      });
+    }
+
+    /* -------- 8. 一键重置造型 -------- */
+    function clearOutfit() {
+      document.getElementById('layer-body').src = 'assets/doll/body1.png';
+      document.getElementById('layer-hair').src = 'assets/hair/h1_front.png';
+      document.getElementById('layer-top').src = 'assets/tops/t1.png';
+      document.getElementById('layer-bottom').src = '';
+      document.getElementById('layer-shoes').src = '';
+      document.getElementById('layer-coat').src = '';
+      document.getElementById('layer-nails').src = '';
+      
+      equippedSocks = [{ id: 'sks1', wear: 'assets/socks/sks1.png' }];
+      renderSocks();
+      updateSocksHighlights();
+
+      equippedAccs = [...defaultAccs];
+      renderAccessories();
+      updateAccSlotHighlights();
+
+      renderGrid();
+    }
+
+    // 初始化启动
+    renderSocks();
+    renderAccessories();
+    switchTab('skin', document.querySelector('.tab-btn'));
+    autoScaleGame();
+  </script>
+</body>
+</html>
